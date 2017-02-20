@@ -12,13 +12,13 @@
   <section>
     <div class="selectors">
         <div class="select-text">Select root note</div>
-        <select ng-change="getChart(rootnote.val, modulation.mod)" ng-model="rootnote" ng-options="note as note.note for note in notes"></select>
-        <select ng-change="getChart(rootnote.val, modulation.mod)" ng-model="modulation" ng-options="mod as mod.mod for mod in mode"></select>
+        <select ng-change="getChart(rootnote.val, modulation.val)" ng-model="rootnote" ng-options="note as note.note for note in notes"></select>
+        <select ng-change="getChart(rootnote.val, modulation.val)" ng-model="modulation" ng-options="mod as mod.mod for mod in mode"></select>
         <div class="select-text">Select scale</div>
     </div>
 
     <div class="chordbox">
-        <chart-chord ng-repeat="chord in chords">  
+        <chart-chord class="chord-chart" ng-repeat="chord in chords">  
         </chart-chord>
     </div>
         

@@ -9,7 +9,8 @@ angular.module('chordApp').controller('chordCTRL', function($scope, chordSVC){
                  $scope.chords[i].fingering = $scope.chords[i].fingering.split(" ").join('').replace(/X/gi,'-');
                  $scope.chords[i].strings = $scope.chords[i].strings.split(' ').join('-');
                  $scope.chords[i].chordName = $scope.chords[i].chordName.split(',').join('').replace(/#/gi,"%23");
-                  }
+                }
+                console.log($scope.chords);
          });
     }
 

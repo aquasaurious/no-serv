@@ -17,17 +17,15 @@
             ];
 
         this.mode = [
-            {"mod": "maj"},
-            {"mod": "m"},   // how minor is represented in 
+            {"mod": "Major", "val": "maj"},
+            {"mod": "Minor", "val": "m"},   // how minor is represented in 
         ];
 
     	this.getChords = function(root, mod) {              // grabs chord shapes and fingering data from Uberchord
-            console.log("SVC:", root, mod);
             return $http({
                  method: 'GET',
                  url: baseURL + root + "_" + mod
             }).then(function(response){
-                console.log(response);
                 return response;}
             )};
 	});
