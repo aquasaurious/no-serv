@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width">
+
+  <base href="https://uberchord-backend.firebaseapp.com">
+
+  <link rel="stylesheet" href="https://uberchord-backend.firebaseapp.com/embed.css?1443438990850">
+  <link rel="stylesheet" href="https://uberchord-backend.firebaseapp.com/font-awesome.min.css">
+
+  <title>Uberchord - Chord Diagrams</title>
+
+  <script src="https://uberchord-backend.firebaseapp.com/raphael-min.js"></script>
+  <script src="https://uberchord-backend.firebaseapp.com/jquery.min.js"></script>
+  <script src="https://uberchord-backend.firebaseapp.com/app.js"></script>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <script>
+    (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+    ga('create', 'UA-46473180-3', 'auto');
+    ga('send', 'pageview');
+
+  </script>
+
+  <base target="_blank" />
+</head>
+<body>
+  <script>
+    var chordDiagramsScalePercentage = /#autosize-(\d+(.\d+)?)/.exec(location.hash);
+    var noIcon = location.hash.indexOf('noicon') !== -1;
+    var chordDiagramsScale = (chordDiagramsScalePercentage ? (0.01 * chordDiagramsScalePercentage[1]) : 1);
+    var minWidth = 100;
+    var maxWidth = 300;
+    var fingerNumbersThreshold = (minWidth + maxWidth) * 0.3;
+    var fixedWidth = 147;
+    var fixedHeight = 162;
+    var scaledWidth = Math.round(fixedWidth * chordDiagramsScale);
+    var scaledHeight = Math.round(fixedHeight * chordDiagramsScale);
+
+    function generateStyleRulesForMobile() {
+      $("<style> \
+        @media only screen \
+          and (min-device-width : 320px) \
+          and (max-device-width : 667px) {\
+          body.autosize.portrait .chord-block {\
+            max-width: " + Math.round(fixedWidth * 0.5) + "px;\
+            max-height: " + Math.round(fixedHeight * 0.5) + "px;\
+          }\
+        }\
+      </style>").appendTo($("head"));
+    }
+    generateStyleRulesForMobile();
+
+    var chordPainter = new ChordPainter();
+    var songParser = new SongParser();
+    var optimalSizeCalculator = new OptimalSizeCalculator(fixedWidth, fixedHeight, minWidth, maxWidth);
+    var chordsData = [{"strings":"X 3 5 4 5 3","fingering":"X 1 3 2 4 1","chordName":"C,maj,7,","enharmonicChordName":"C,maj,7,","tones":"C,E,G,B"},{"strings":"X 3 2 4 3 X","fingering":"X 2 1 4 3 X","chordName":"C,maj,79,","enharmonicChordName":"C,maj,79,","tones":"C,E,G,B,D"},{"strings":"X 3 X 4 5 5","fingering":"X 1 X 2 3 4","chordName":"C,maj,713,","enharmonicChordName":"C,maj,713,","tones":"C,E,G,A,B"},{"strings":"X 3 2 1 0 4","fingering":"X 3 2 1 X 4","chordName":"C,maj,7#5,","enharmonicChordName":"C,maj,7#5,","tones":"C,E,G#,B"},{"strings":"X 3 1 0 0 3","fingering":"X 3 1 X X 4","chordName":"C,m,maj7,","enharmonicChordName":"C,m,maj7,","tones":"C,Eb,G,B"},{"strings":"8 6 9 7 X X","fingering":"3 1 4 2 X X","chordName":"C,m,maj79,","enharmonicChordName":"C,m,maj79,","tones":"C,Eb,G,B,D"},{"strings":"8 7 9 7 10 X","fingering":"2 1 3 1 4 X","chordName":"C,maj,79(add11),","enharmonicChordName":"C,maj,79(add11),","tones":"C,E,G,A,B,D"},{"strings":"X 3 X 4 5 2","fingering":"X 2 X 3 4 1","chordName":"C,maj,7#11,","enharmonicChordName":"C,maj,7#11,","tones":"C,E,G,B,Gb"},{"strings":"8 6 9 7 6 X","fingering":"3 1 4 2 1 X","chordName":"C,m,maj7911,","enharmonicChordName":"C,m,maj7911,","tones":"C,Eb,G,B,D,F"},{"strings":"8 7 7 7 7 7","fingering":"2 1 1 1 1 1","chordName":"C,,maj79#1113,","enharmonicChordName":"C,,maj79#1113,","tones":"C,E,Gb,A,B,D"}];
+    $(window).load(function() {
+      fontsLoadedPromise('MusiSync', "/embed.css?1443438990850").then(function() {
+        var $chordsListContainer = $('#chords-list');
+        var importButtonEl = $('#import-button')[0];
+        var importButtonUrl = importButtonEl.href;
+        var $svgs;
+        var $socialSharing = $('#social-sharing');
+        function isSocialSharingOnBottom() {
+          return $socialSharing.css('position') === 'static';
+        }
+        function isSocialSharingVisible() {
+          return $socialSharing.is(':visible');
+        }
+        function doesSocialSharingOccupyBottomSpace() {
+          return isSocialSharingOnBottom() && isSocialSharingVisible();
+        }
+        function doesSocialSharingOccupyRightSpace() {
+          return !isSocialSharingOnBottom() && isSocialSharingVisible();
+        }
+        if (false === noIcon) {
+          $('#import-button img').show();
+        }
+        chordsData.forEach(function (chord) {
+          var paper = Raphael($chordsListContainer[0], fixedWidth, fixedHeight);
+          var chordDiagramData = songParser.parseChordNotation(chord.strings, chord.fingering, chord.chordName);
+          chordPainter.paintChord(paper, chordDiagramData);
+          $('<a></a>').appendTo($chordsListContainer).append(
+            $(paper.canvas).attr({
+              "class": 'chord-block',
+              "alt": chord.chordName.replace(/,/g, ''),
+              "width": scaledWidth,
+              "height": scaledHeight
+            })
+          ).attr('href', "https://song.uberchord.com/getChordsByNameLikeC_maj7").css('text-decoration', 'none');
+        });
+        $('#loading-curtain').hide();
+        $svgs = $('#chords-list svg');
+        function refreshIframeHeight() {
+          if (window.orientation !== undefined) {
+            $('body').toggleClass('portrait', Math.abs(window.orientation) != 90);
+          }
+          $chordsListContainer.width(calculateAvailableWidth());
+          adjustSharingBarMargin($(document.body).height());
+        }
+        function calculateAvailableWidth() {
+          var wWidth = $(window).width();
+          return doesSocialSharingOccupyRightSpace() ? (wWidth - 40) : wWidth;
+        }
+        function calculateAvailableHeight() {
+          var wHeight = $(window).height() - $('#practice-bar').outerHeight();
+          return doesSocialSharingOccupyBottomSpace() ? (wHeight - $('#social-sharing').height()) : wHeight;
+        }
+        function adjustSharingBarMargin(height) {
+          if (doesSocialSharingOccupyRightSpace()) {
+            $('#social-sharing').css('top', $('svg text.chord-name-part')[0].getAttribute('y') + 'px');
+          }
+          refreshImportButton(height);
+        }
+        function optimizeChordsSize() {
+          var availableWidth = calculateAvailableWidth();
+          var optimalSize = optimalSizeCalculator.calculateOptimalTileSizeForContainer(availableWidth, calculateAvailableHeight(), chordsData.length);
+          $svgs.width(optimalSize[0]).height(optimalSize[1]);
+          $chordsListContainer.toggleClass('big-chord-diagram', optimalSize[0] >= fingerNumbersThreshold).width(availableWidth);
+          adjustSharingBarMargin($(window).height());
+        }
+        function refreshImportButton(height) {
+          var importBtnRect = importButtonEl.getBoundingClientRect();
+          parent.postMessage({
+            url: location.href, dbtnl: {
+              left: importBtnRect.left,
+              top: importBtnRect.top,
+              width: importBtnRect.width,
+              height: importBtnRect.height,
+              href: importButtonUrl
+            },
+            height: height
+          }, '*');
+        }
+        if (location.hash.indexOf('#autosize') === 0) {
+          $chordsListContainer.toggleClass('big-chord-diagram', fixedWidth >= fingerNumbersThreshold);
+          window.onresize = refreshIframeHeight;
+          window.addEventListener('orientationchange', refreshIframeHeight, false);
+          $('body').addClass('autosize');
+          refreshIframeHeight();
+        } else {
+          window.onresize = optimizeChordsSize;
+          optimizeChordsSize();
+        }
+      },
+      function() {
+        document.write("Unexpected error occurred. Please try again later.");
+      });
+    });
+  </script>
+
+  <div id="chords-list"></div>
+
+  <aside id="social-sharing">
+    
+    <a id="twitter-share" href="https://twitter.com/intent/tweet?url=https%3A%2F%2Fsong.uberchord.com%2Fget…itter%26utm_medium%3Dsocial%26utm_campaign%3Dsnippet_sharing&via=Uberchord"><i class="fa fa-twitter"></i></a>
+    <a id="facebook-share" href="https://www.facebook.com/sharer/sharer.php?u=https%3A%2F%2Fsong.uberchord.c…m_source%3Dfacebook%26utm_medium%3Dsocial%26utm_campaign%3Dsnippet_sharing"><i class="fa fa-facebook"></i></a>
+    <a id="googleplus-share" href="https://plus.google.com/share?url=https%3A%2F%2Fsong.uberchord.com%2FgetCho…Futm_source%3Dgplus%26utm_medium%3Dsocial%26utm_campaign%3Dsnippet_sharing"><i class="fa fa-google-plus"></i></a>
+  </aside>
+
+  <aside id="practice-bar">
+    <a id="import-button" href="https://song.uberchord.com/getChordsByNameLikeC_maj7">
+      <div>
+        <div class="logo"><span><img width="54" height="54" src="https://uberchord-backend.firebaseapp.com/img/iTunesArtwork.png" /></span></div>
+        <div class="copy"><span>You can open and practice this exercise in the Uberchord App</span></div>
+        <div class="copy copy-mobile"><span>Open this in <br><strong>Uberchord</strong></span></div>
+        <div class="btn-container"><span class="btn">Open</span></div>
+      </div>
+    </a>
+  </aside>
+
+  <div id="loading-curtain">
+    <div>Please wait...</div>
+  </div>
+  
+</body>
+</html>
